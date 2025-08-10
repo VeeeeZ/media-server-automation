@@ -1,0 +1,57 @@
+Vagrant.configure("2") do |config|
+  # Use Ubuntu 24.04 LTS
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = "20240821.0.0"
+  
+  # VM Configuration
+  config.vm.hostname = "media-server-test"
+  
+  # Network configuration
+  config.vm.network "private_network", ip: "192.168.56.10"
+  config.vm.network "forwarded_port", guest: 8989, host: 8989, host_ip: "127.0.0.1"  # Sonarr
+  config.vm.network "forwarded_port", guest: 7878, host: 7878, host_ip: "127.0.0.1"  # Radarr
+  config.vm.network "forwarded_port", guest: 9696, host: 9696, host_ip: "127.0.0.1"  # Prowlarr
+  config.vm.network "forwarded_port", guest: 6767, host: 6767, host_ip: "127.0.0.1"  # Bazarr
+  config.vm.network "forwarded_port", guest: 9091, host: 9091, host_ip: "127.0.0.1"  # Transmission
+  config.vm.network "forwarded_port", guest: 6789, host: 6789, host_ip: "127.0.0.1"  # NZBGet
+  config.vm.network "forwarded_port", guest: 5055, host: 5055, host_ip: "127.0.0.1"  # Overseerr
+  
+  # VM Resources
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = "media-server-test"
+    vb.memory = "4096"  # 4GB RAM
+    vb.cpus = 2
+    
+    # Enable virtualization features
+    vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+  end
+  
+  # Shared folders
+  config.vm.synced_folder "../", "/vagrant", type: "virtualbox"
+  
+  # Provisioning
+  config.vm.provision "shell", inline: <<-SHELL
+    # Update system
+    apt-get update
+    apt-get upgrade -y
+    
+    # Install basic tools
+    apt-get install -y curl wget git htop tree
+    
+    # Create media user
+    useradd -r -s /bin/false -u 1001 -g users media
+    
+    # Create test directories (simulating NFS mount)
+    mkdir -p /mnt/artie/{downloads,movies,tv,music}
+    chown -R media:users /mnt/artie
+    chmod -R 755 /mnt/artie
+    
+    # Copy automation files
+    cp -r /vagrant /home/vagrant/media-server-automation
+    chown -R vagrant:vagrant /home/vagrant/media-server-automation
+    
+    echo "VM setup complete! Ready for media server deployment testing."
+    echo "Run 'vagrant ssh' then 'cd media-server-automation && ./scripts/bootstrap.sh'"
+  SHELL
+end
