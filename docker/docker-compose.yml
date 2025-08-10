@@ -3,8 +3,24 @@ version: '3.8'
 networks:
   media-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 services:
+  # Init Container - Prepares environment and configurations
+  media-init:
+    image: alpine:latest
+    container_name: media-init
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./configs:/configs:rw
+      - ./.env:/env:ro
+    command: ["/scripts/init-container.sh"]
+    networks:
+      - media-network
+    profiles:
+      - init
   # VPN Container - All download traffic routes through this
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -81,84 +97,129 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=1001
-      - PGID=1001
-      - TZ=Australia/Sydney
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - SONARR__API_KEY=${SONARR_API_KEY:-}
     volumes:
       - ./configs/sonarr:/config
-      - /mnt/artie:/data
-      - /mnt/artie/downloads:/downloads
+      - ${MEDIA_ROOT:-/mnt/artie}:/data
+      - ${DOWNLOADS_PATH:-/mnt/artie/downloads}:/downloads
     ports:
-      - "8989:8989"
+      - "${SONARR_PORT:-8989}:8989"
     restart: unless-stopped
     networks:
       - media-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/api/v3/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Radarr - Movie management
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=1001
-      - PGID=1001
-      - TZ=Australia/Sydney
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - RADARR__API_KEY=${RADARR_API_KEY:-}
     volumes:
       - ./configs/radarr:/config
-      - /mnt/artie:/data
-      - /mnt/artie/downloads:/downloads
+      - ${MEDIA_ROOT:-/mnt/artie}:/data
+      - ${DOWNLOADS_PATH:-/mnt/artie/downloads}:/downloads
     ports:
-      - "7878:7878"
+      - "${RADARR_PORT:-7878}:7878"
     restart: unless-stopped
     networks:
       - media-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/api/v3/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Prowlarr - Indexer management
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
-      - PUID=1001
-      - PGID=1001
-      - TZ=Australia/Sydney
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - PROWLARR__API_KEY=${PROWLARR_API_KEY:-}
     volumes:
       - ./configs/prowlarr:/config
     ports:
-      - "9696:9696"
+      - "${PROWLARR_PORT:-9696}:9696"
     restart: unless-stopped
     networks:
       - media-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/api/v1/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Bazarr - Subtitle management
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=1001
-      - PGID=1001
-      - TZ=Australia/Sydney
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - BAZARR__API_KEY=${BAZARR_API_KEY:-}
     volumes:
       - ./configs/bazarr:/config
-      - /mnt/artie:/data
+      - ${MEDIA_ROOT:-/mnt/artie}:/data
     ports:
-      - "6767:6767"
+      - "${BAZARR_PORT:-6767}:6767"
     restart: unless-stopped
     networks:
       - media-network
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6767/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Overseerr - Request management
   overseerr:
     image: sctx/overseerr:latest
     container_name: overseerr
     environment:
-      - LOG_LEVEL=debug
-      - TZ=Australia/Sydney
+      - LOG_LEVEL=${OVERSEERR_LOG_LEVEL:-info}
+      - TZ=${TZ:-Australia/Sydney}
+      - OVERSEERR__API_KEY=${OVERSEERR_API_KEY:-}
     ports:
-      - "5055:5055"
+      - "${OVERSEERR_PORT:-5055}:5055"
     volumes:
       - ./configs/overseerr:/app/config
     restart: unless-stopped
     networks:
       - media-network
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Flaresolverr - Cloudflare bypass
   flaresolverr:
@@ -328,6 +389,63 @@ services:
     restart: unless-stopped
     networks:
       - media-network
+
+  # Cleanuparr - Download cleanup automation
+  cleanuparr:
+    image: ghcr.io/cleanuparr/cleanuparr:latest
+    container_name: cleanuparr
+    environment:
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - CLEANUPARR_SONARR_URL=http://sonarr:8989
+      - CLEANUPARR_SONARR_API_KEY=${SONARR_API_KEY:-}
+      - CLEANUPARR_RADARR_URL=http://radarr:7878
+      - CLEANUPARR_RADARR_API_KEY=${RADARR_API_KEY:-}
+      - CLEANUPARR_LOG_LEVEL=INFO
+    volumes:
+      - ./configs/cleanuparr:/config
+      - ${DOWNLOADS_PATH:-/mnt/artie/downloads}:/downloads:rw
+    ports:
+      - "${CLEANUPARR_PORT:-8990}:8990"
+    restart: unless-stopped
+    networks:
+      - media-network
+    depends_on:
+      - sonarr
+      - radarr
+
+  # Huntarr - Advanced torrent management
+  huntarr:
+    image: huntarr/huntarr:latest
+    container_name: huntarr
+    environment:
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - TZ=${TZ:-Australia/Sydney}
+      - HUNTARR_SONARR_URL=http://sonarr:8989
+      - HUNTARR_SONARR_API_KEY=${SONARR_API_KEY:-}
+      - HUNTARR_RADARR_URL=http://radarr:7878
+      - HUNTARR_RADARR_API_KEY=${RADARR_API_KEY:-}
+      - HUNTARR_PROWLARR_URL=http://prowlarr:9696
+      - HUNTARR_PROWLARR_API_KEY=${PROWLARR_API_KEY:-}
+    volumes:
+      - ./configs/huntarr:/config
+      - ${DOWNLOADS_PATH:-/mnt/artie/downloads}:/downloads:ro
+    ports:
+      - "${HUNTARR_PORT:-8991}:8991"
+    restart: unless-stopped
+    networks:
+      - media-network
+    depends_on:
+      - sonarr
+      - radarr
+      - prowlarr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8991/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   prometheus-data:
