@@ -112,6 +112,13 @@ test_prerequisites() {
         return 1
     fi
     
+    # Check Vagrant (optional for VM testing)
+    if ! command -v vagrant &> /dev/null; then
+        log_warning "Vagrant not installed - VM testing will be skipped"
+    else
+        log_success "Vagrant available for VM testing"
+    fi
+    
     # Check required files
     if [[ ! -f "$TEST_ENV" ]]; then
         log_error "Test environment file missing: $TEST_ENV"

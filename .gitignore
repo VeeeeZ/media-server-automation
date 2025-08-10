@@ -106,6 +106,8 @@ ansible/group_vars/staging/
 *.vdi
 *.vmdk
 *.vbox
+oracle_vbox_2016.asc
+virtualbox-*.deb
 
 # VMware
 *.vmx
@@ -149,6 +151,8 @@ site/
 test-results/
 coverage/
 .coverage
+configs-test/
+*.test
 
 # Backup directories
 backups/
