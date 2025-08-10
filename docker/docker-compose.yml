@@ -1,0 +1,203 @@
+version: '3.8'
+
+networks:
+  media-network:
+    driver: bridge
+
+services:
+  # VPN Container - All download traffic routes through this
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "9091:9091"    # Transmission WebUI
+      - "6789:6789"    # NZBGet WebUI
+    volumes:
+      - ./configs/gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${PROTON_USER}
+      - OPENVPN_PASSWORD=${PROTON_PASS}
+      - OPENVPN_CONFIG_FILE=${PROTON_CONFIG:-proton.conf}
+      - SERVER_COUNTRIES=Switzerland
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.69.0/24  # Local network access
+      - LOG_LEVEL=info
+      - HEALTH_TARGET_ADDRESS=1.1.1.1:53
+      - HEALTH_SUCCESS_WAIT_DURATION=5s
+    restart: unless-stopped
+    networks:
+      - media-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/openvpn/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Transmission - BitTorrent client via VPN
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - PUID=1001  # media user
+      - PGID=1001  # media group
+      - TZ=Australia/Sydney
+      - TRANSMISSION_WEB_HOME=/config/web
+      - USER=${TRANSMISSION_USER:-admin}
+      - PASS=${TRANSMISSION_PASS:-password}
+    volumes:
+      - ./configs/transmission:/config
+      - /mnt/artie/downloads:/downloads
+      - /mnt/artie/downloads/watch:/watch
+    restart: unless-stopped
+
+  # NZBGet - Usenet client via VPN
+  nzbget:
+    image: lscr.io/linuxserver/nzbget:latest
+    container_name: nzbget
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - PUID=1001  # media user
+      - PGID=1001  # media group
+      - TZ=Australia/Sydney
+    volumes:
+      - ./configs/nzbget:/config
+      - /mnt/artie/downloads:/downloads
+    restart: unless-stopped
+
+  # Sonarr - TV Show management
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=Australia/Sydney
+    volumes:
+      - ./configs/sonarr:/config
+      - /mnt/artie:/data
+      - /mnt/artie/downloads:/downloads
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Radarr - Movie management
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=Australia/Sydney
+    volumes:
+      - ./configs/radarr:/config
+      - /mnt/artie:/data
+      - /mnt/artie/downloads:/downloads
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Prowlarr - Indexer management
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=Australia/Sydney
+    volumes:
+      - ./configs/prowlarr:/config
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Bazarr - Subtitle management
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=Australia/Sydney
+    volumes:
+      - ./configs/bazarr:/config
+      - /mnt/artie:/data
+    ports:
+      - "6767:6767"
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Overseerr - Request management
+  overseerr:
+    image: sctx/overseerr:latest
+    container_name: overseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Australia/Sydney
+    ports:
+      - "5055:5055"
+    volumes:
+      - ./configs/overseerr:/app/config
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Flaresolverr - Cloudflare bypass
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=Australia/Sydney
+    ports:
+      - "8191:8191"
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Watchtower - Auto-update containers
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Australia/Sydney
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *  # Daily at 4 AM
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+    restart: unless-stopped
+
+  # Optional: Grafana monitoring
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./configs/grafana:/var/lib/grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+  #   restart: unless-stopped
+  #   networks:
+  #     - media-network
