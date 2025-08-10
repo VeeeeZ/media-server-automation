@@ -1,45 +1,49 @@
-# 🎬 Media Server Automation
+# 🚀 Media Server Automation
 
-Complete Infrastructure as Code solution for deploying a production-ready media server with VPN-protected download clients in 30 minutes.
+A comprehensive Infrastructure as Code solution for automated Servarr media server deployment with VPN protection, advanced monitoring, and seamless migration from native installations.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Docker](https://img.shields.io/badge/docker-compose-blue.svg)
+![Ansible](https://img.shields.io/badge/ansible-automated-red.svg)
+![Status](https://img.shields.io/badge/status-production--ready-green.svg)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-20.04%2B-orange)](https://ubuntu.com/)
 [![Debian](https://img.shields.io/badge/Debian-11%2B-red)](https://www.debian.org/)
 [![Docker](https://img.shields.io/badge/Docker-24.0%2B-blue)](https://www.docker.com/)
 
 ## ✨ Features
 
-### 🏗️ **One-Command Deployment**
-- Deploy complete media server from bare OS in ~30 minutes
-- Idempotent automation - safe to re-run
-- VM testing environment included
+### 🔒 **Security & Privacy**
+- **VPN Protection**: All download clients routed through ProtonVPN with kill switch
+- **Container Isolation**: Services isolated in Docker containers with minimal privileges
+- **Secrets Management**: Automated sanitization and secure handling of API keys and passwords
+- **Configuration Templates**: Sanitized configuration templates with sensitive data removed
 
-### 🔒 **VPN-Protected Downloads**  
-- Transmission & NZBGet routed through VPN
-- Kill switch prevents IP leaks
-- Support for ProtonVPN, Surfshark, NordVPN & 60+ providers
+### 📊 **Advanced Monitoring**
+- **Grafana Dashboards**: Real-time system and application metrics
+- **Prometheus Metrics**: Comprehensive metrics collection for all services
+- **Log Aggregation**: Centralized logging with Loki and Promtail
+- **Health Monitoring**: Automated health checks with alerting and auto-recovery
 
-### 🎯 **Complete Media Stack**
-- **Sonarr** - TV show management
-- **Radarr** - Movie management  
-- **Prowlarr** - Indexer management
-- **Bazarr** - Subtitle management
-- **Overseerr** - Request management
-- **Transmission** - BitTorrent client (VPN)
-- **NZBGet** - Usenet client (VPN)
+### 🤖 **Automation & Management**
+- **One-Command Deployment**: Deploy entire stack with single command
+- **Automated Updates**: Container updates with Watchtower
+- **Configuration Migration**: Seamless migration from native installations
+- **Backup & Recovery**: Automated backups and disaster recovery
 
-### 🛡️ **Enterprise Security**
-- UFW firewall auto-configuration
-- Fail2ban brute force protection
-- Tailscale secure remote access
-- Non-root container execution
-- Automatic security updates
+### 🎬 **Media Services**
+- **Sonarr**: TV series management and automation
+- **Radarr**: Movie management and automation  
+- **Prowlarr**: Indexer management for torrents and usenet
+- **Bazarr**: Subtitle management and automation
+- **Overseerr**: User-friendly request management interface
+- **Transmission**: BitTorrent client (VPN protected)
+- **NZBGet**: Usenet client (VPN protected)
+- **Unpackerr**: Automated archive extraction
 
-### 📊 **Built-in Monitoring**
-- Health checks for all services
-- VPN connectivity monitoring
-- Automated backups to NAS
-- Performance metrics collection
+### 🛠 **Management Tools**
+- **Portainer**: Web-based Docker management
+- **Flaresolverr**: Cloudflare bypass for indexers
+- **VPN Health Monitor**: Automatic VPN recovery and monitoring
 
 ## 🚀 Quick Start
 
