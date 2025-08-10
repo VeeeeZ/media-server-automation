@@ -53,7 +53,7 @@ security:
   ufw_enabled: true
   fail2ban_enabled: true
   auto_updates: true
-  
+
 # Performance Tuning
 performance:
   swappiness: 10

@@ -156,21 +156,21 @@
           LogFile=/config/nzbget.log
           ConfigTemplate=/usr/share/nzbget/nzbget.conf
           ScriptDir=/usr/share/nzbget/scripts
-          
+
           # Web Interface
           ControlIP=0.0.0.0
           ControlPort=6789
           ControlUsername={{ vault_nzbget_username | default('admin') }}
           ControlPassword={{ vault_nzbget_password | default('password') }}
-          
+
           # Download Settings
           ArticleCache=700
           DirectWrite=yes
           WriteBuffer=1024
-          
+
           # Connection Settings
           MaxSpeed=0
-          
+
           # Logging
           InfoTarget=both
           WarningTarget=both
@@ -222,15 +222,15 @@
         content: |
           #!/bin/bash
           # Media Server Status Script
-          
+
           echo "=== Media Server Status ==="
           date
           echo
-          
+
           echo "Docker Containers:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           echo
-          
+
           echo "VPN Status:"
           if docker exec gluetun wget -qO- ifconfig.me 2>/dev/null; then
               echo "✓ VPN is working"
@@ -238,7 +238,7 @@
               echo "✗ VPN issue detected"
           fi
           echo
-          
+
           echo "Service Health:"
           for service in sonarr radarr prowlarr bazarr overseerr; do
               case $service in
@@ -248,7 +248,7 @@
                   bazarr) port=6767 ;;
                   overseerr) port=5055 ;;
               esac
-              
+
               if curl -s http://localhost:$port > /dev/null; then
                   echo "✓ $service (port $port) - OK"
               else
@@ -256,21 +256,21 @@
               fi
           done
           echo
-          
+
           echo "Download Clients:"
           if curl -s http://localhost:9091 > /dev/null; then
               echo "✓ Transmission (port 9091) - OK"
           else
               echo "✗ Transmission (port 9091) - Down"
           fi
-          
+
           if curl -s http://localhost:6789 > /dev/null; then
               echo "✓ NZBGet (port 6789) - OK"
           else
               echo "✗ NZBGet (port 6789) - Down"
           fi
           echo
-          
+
           echo "Storage:"
           df -h /mnt/artie 2>/dev/null || echo "NFS not mounted"
 
@@ -281,7 +281,7 @@
           [Unit]
           Description=Media Server Health Check
           After=media-server.service
-          
+
           [Service]
           Type=oneshot
           ExecStart=/opt/media-server/status.sh
@@ -294,11 +294,11 @@
           [Unit]
           Description=Run media server health check every 15 minutes
           Requires=media-health-check.service
-          
+
           [Timer]
           OnBootSec=5min
           OnUnitActiveSec=15min
-          
+
           [Install]
           WantedBy=timers.target
 
@@ -313,7 +313,7 @@
       debug:
         msg: |
           Media server deployment completed!
-          
+
           Services should be available at:
           - Sonarr: http://{{ ansible_default_ipv4.address }}:8989
           - Radarr: http://{{ ansible_default_ipv4.address }}:7878
@@ -322,6 +322,6 @@
           - Overseerr: http://{{ ansible_default_ipv4.address }}:5055
           - Transmission: http://{{ ansible_default_ipv4.address }}:9091
           - NZBGet: http://{{ ansible_default_ipv4.address }}:6789
-          
+
           Run 'docker ps' to check container status
           Run '/opt/media-server/status.sh' for detailed health check

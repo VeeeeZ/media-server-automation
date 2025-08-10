@@ -35,31 +35,31 @@
         content: |
           #!/bin/bash
           # VPN Kill Switch for Media Server
-          
+
           # Allow loopback
           iptables -A INPUT -i lo -j ACCEPT
           iptables -A OUTPUT -o lo -j ACCEPT
-          
+
           # Allow local network
           iptables -A INPUT -s 192.168.69.0/24 -j ACCEPT
           iptables -A OUTPUT -d 192.168.69.0/24 -j ACCEPT
-          
+
           # Allow established connections
           iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
           iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-          
+
           # Allow VPN connection
           iptables -A OUTPUT -p udp --dport 1194 -j ACCEPT
           iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
-          
+
           # Allow DNS
           iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
           iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
-          
+
           # Block all other traffic (kill switch)
           iptables -A OUTPUT -j DROP
           iptables -A INPUT -j DROP
-          
+
           echo "VPN kill switch activated"
 
     - name: Install Tailscale
@@ -90,7 +90,7 @@
           shell: tailscale up --authkey="{{ tailscale_authkey }}" --accept-routes --accept-dns=false
           when: tailscale_authkey != ""
           register: tailscale_result
-          failed_when: 
+          failed_when:
             - tailscale_result.rc != 0
             - "'already logged in' not in tailscale_result.stderr"
 
@@ -109,15 +109,15 @@
         content: |
           #!/bin/bash
           # Network Health Check Script
-          
+
           echo "=== Network Status Check ==="
           date
           echo
-          
+
           echo "Local IP Address:"
           ip addr show $(ip route | grep default | awk '{print $5}' | head -1) | grep 'inet ' | awk '{print $2}'
           echo
-          
+
           echo "VPN Status:"
           if pgrep openvpn > /dev/null; then
               echo "✓ OpenVPN is running"
@@ -126,11 +126,11 @@
               echo "✗ OpenVPN is not running"
           fi
           echo
-          
+
           echo "Tailscale Status:"
           tailscale status --json 2>/dev/null | jq -r '.Self.TailscaleIPs[0]' 2>/dev/null || echo "Not connected"
           echo
-          
+
           echo "Internet Connectivity:"
           if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
               echo "✓ Internet accessible"
@@ -138,7 +138,7 @@
               echo "✗ No internet connectivity"
           fi
           echo
-          
+
           echo "Media Server Ports:"
           netstat -tlnp 2>/dev/null | grep -E ':(8989|7878|9696|6767|9091|6789|5055)' || echo "No media services detected"
 
@@ -149,7 +149,7 @@
           [Unit]
           Description=Media Server Network Monitor
           After=network.target
-          
+
           [Service]
           Type=oneshot
           ExecStart=/opt/media-server/check-network.sh
@@ -162,11 +162,11 @@
           [Unit]
           Description=Run network monitoring every 5 minutes
           Requires=network-monitor.service
-          
+
           [Timer]
           OnBootSec=5min
           OnUnitActiveSec=5min
-          
+
           [Install]
           WantedBy=timers.target
 
@@ -195,16 +195,16 @@
         content: |
           #!/bin/bash
           # VPN Connection Test
-          
+
           echo "Testing VPN connection..."
-          
+
           # Test IP leak
           REAL_IP=$(curl -s --connect-timeout 5 http://ipecho.net/plain)
           VPN_IP=$(curl -s --connect-timeout 5 --interface tun0 http://ipecho.net/plain 2>/dev/null)
-          
+
           echo "Real IP: ${REAL_IP}"
           echo "VPN IP: ${VPN_IP}"
-          
+
           if [ "$REAL_IP" = "$VPN_IP" ]; then
               echo "⚠️  WARNING: IP leak detected! VPN may not be working properly"
               exit 1
